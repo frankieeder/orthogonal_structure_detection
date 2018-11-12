@@ -1,10 +1,11 @@
 import numpy as np
-from open3d import *
+#from open3d import *
 import pandas as pd
 import os
 import pickle
 import sys
 import matplotlib.pyplot as plt
+from matplotlib.colors import rgb2hex
 
 def save_as_pickled_object(obj, filepath):
     """
@@ -43,26 +44,39 @@ areas = [[a + '/' + r + '/' + r + ".txt" for r in subfolders(a)] for a in areas]
 
 pcs = []
 area_1_dir = './area_1_pc'
-if not os.path.isfile(area_1_dir):
-    for area in areas[:1]:
-        area_rooms = []
-        for room in area:
-            print(room)
-            room_df = pd.read_csv(
-                filepath_or_buffer=room,
-                sep=' ',
-                names=['x', 'y', 'z', 'r', 'g', 'b']
-            )
-            area_rooms.append(room_df)
-        area_reconstruction = pd.concat(area_rooms)
-        pcs.append(area_reconstruction)
-if not pcs:
+"""if not os.path.isfile(area_1_dir):"""
+for area in areas[:1]:
+    area_rooms = []
+    for room in area:
+        print(room)
+        room_df = pd.read_csv(
+            filepath_or_buffer=room,
+            sep=' ',
+            names=['x', 'y', 'z', 'r', 'g', 'b']
+        )
+        #color_df = room_df[['r', 'g', 'b']]
+        #colors = [rgb2hex(color_df.loc[i,:]) for i in range(room_df.shape[0])]
+        room_df = room_df.sample(frac=0.005)
+        plt.scatter(room_df['x'], room_df['y'])
+        area_rooms.append(room_df)
+    area_reconstruction = pd.concat(area_rooms)
+    pcs.append(area_reconstruction)
+pcs = pcs[0]
+"""pcs = pd.read_csv(
+    filepath_or_buffer="./s3dis/Area_2/WC_1/WC_1.txt",
+    sep=' ',
+    names=['x', 'y', 'z', 'r', 'g', 'b']
+)"""
+plt.hist2d(x=pcs['x'], y=pcs['y'], bins=[1000, 1000])
+plt.axis(option='scaled')
+plt.show()
+if False: #not pcs:
     area_1 = try_to_load_as_pickled_object_or_None(area_1_dir)
 else:
     area_1 = pcs[0]
     save_as_pickled_object(area_1, area_1_dir)
 
-if __name__ == "__main__":
+if False: #__name__ == "__main__":
     print("Load a ply point cloud, print it, and render it")
     pcd = read_point_cloud("./s3Dis/Area_1_conference_Room_1/conferenceRoom_1.txt")
     print(pcd)
