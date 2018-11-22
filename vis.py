@@ -71,8 +71,10 @@ min_a1, max_a1 = min(pcs[a1]), max(pcs[a1])
 min_a2, max_a2 = min(pcs[a2]), max(pcs[a2])
 bins = [(max_a1 - min_a1) // pixel_size, (max_a2 - min_a2) // pixel_size]
 image = plt.hist2d(x=pcs[a1], y=pcs[a2], bins=[1000, 1000])
-plt.axis(option='scaled')
-plt.show()
+image = image[0]
+plt.imshow(image)
+#plt.axis(option='scaled')
+#plt.show()
 if False: #not pcs:
     area_1 = try_to_load_as_pickled_object_or_None(area_1_dir)
 else:

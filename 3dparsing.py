@@ -1,21 +1,52 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-#import scipy.io
-#import h5py
-pc_mat_dir = './2d3ds/area_3/3d/pointcloud.mat'
-"""with h5py.File(pc_dir, 'r') as f:
-    f.keys()"""
+import cv2 as cv
+import os
 
-pc = pd.read_csv(
-    filepath_or_buffer="./s3dis/Area_2/WC_1/WC_1.txt",
-    sep=' ',
-    names=['x', 'y', 'z', 'r', 'g', 'b']
-)
+root = './s3dis'
+subfolders = lambda dir: next(os.walk(dir))[1]
+areas = subfolders(root)
+areas = [root + '/' + a for a in areas]
+areas = [[a + '/' + r + '/' + r + ".txt" for r in subfolders(a)] for a in areas]
+
+
+pcs = []
+area_1_dir = './area_1_pc'
+"""if not os.path.isfile(area_1_dir):"""
+for area in areas[:1]:
+    area_rooms = []
+    for room in area:
+        print(room)
+        room_df = pd.read_csv(
+            filepath_or_buffer=room,
+            sep=' ',
+            names=['x', 'y', 'z', 'r', 'g', 'b']
+        )
+        area_rooms.append(room_df)
+    area_reconstruction = pd.concat(area_rooms)
+    pcs.append(area_reconstruction)
+pc = pcs[0]
 
 PIXEL_SIZE = 1 / 39.37  # 1 inches
 
+def make_image(pc, a1, a2):
+    min_a1, max_a1 = min(pc[a1]), max(pc[a1])
+    min_a2, max_a2 = min(pc[a2]), max(pc[a2])
+    bins = [(max_a1 - min_a1) // PIXEL_SIZE, (max_a2 - min_a2) // PIXEL_SIZE]
+    plot = plt.hist2d(x=pc[a1], y=pc[a2], bins=bins)
+    plt.clf()
+    plt.close()
+    image = plot[0]
+    return image
+
+x_y_proj = make_image(pc, 'x', 'y')
+x_y_gradient = cv.Laplacian(x_y_proj, cv.CV_64F)
+x_z_proj = make_image(pc, 'x', 'z')
+y_z_proj = make_image(pc, 'y', 'z')
+x = 2
+
+# BAD BELOW HERE
 def pixelize_and_normalize(pc, pixel_size=PIXEL_SIZE):
     min_x = min(pc['x'])
     min_y = min(pc['y'])
@@ -36,7 +67,7 @@ def find_walls(pc):
 def group_as_df(pc, by):
     return pd.DataFrame({'value' : pc.groupby(by).size()}).reset_index()
 
-def make_image(df):
+def make_image_old(df):
     x_label, y_label, v_label = df.columns
     x_size = int(max(df[x_label])) + 1
     y_size = int(max(df[y_label])) + 1
@@ -47,5 +78,5 @@ def make_image(df):
     return image
 
 
-pixelize_and_normalize(pc)
-find_walls(pc)
+#pixelize_and_normalize(pc)
+#find_walls(pc)
