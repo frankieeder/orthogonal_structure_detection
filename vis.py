@@ -1,11 +1,8 @@
-import numpy as np
-#from open3d import *
 import pandas as pd
 import os
 import pickle
 import sys
 import matplotlib.pyplot as plt
-from matplotlib.colors import rgb2hex
 
 def save_as_pickled_object(obj, filepath):
     """
@@ -56,8 +53,8 @@ for area in areas[:1]:
         )
         #color_df = room_df[['r', 'g', 'b']]
         #colors = [rgb2hex(color_df.loc[i,:]) for i in range(room_df.shape[0])]
-        room_df = room_df.sample(frac=0.005)
-        plt.scatter(room_df['x'], room_df['y'])
+        #room_df = room_df.sample(frac=0.005)
+        #plt.scatter(room_df['x'], room_df['y'])
         area_rooms.append(room_df)
     area_reconstruction = pd.concat(area_rooms)
     pcs.append(area_reconstruction)
@@ -67,7 +64,13 @@ pcs = pcs[0]
     sep=' ',
     names=['x', 'y', 'z', 'r', 'g', 'b']
 )"""
-plt.hist2d(x=pcs['x'], y=pcs['y'], bins=[1000, 1000])
+pixel_size = 1 / 39.37 #1 inches
+a1 = 'x'
+a2 = 'y'
+min_a1, max_a1 = min(pcs[a1]), max(pcs[a1])
+min_a2, max_a2 = min(pcs[a2]), max(pcs[a2])
+bins = [(max_a1 - min_a1) // pixel_size, (max_a2 - min_a2) // pixel_size]
+image = plt.hist2d(x=pcs[a1], y=pcs[a2], bins=[1000, 1000])
 plt.axis(option='scaled')
 plt.show()
 if False: #not pcs:
