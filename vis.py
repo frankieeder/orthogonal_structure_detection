@@ -44,7 +44,7 @@ area_1_dir = './area_1_pc'
 """if not os.path.isfile(area_1_dir):"""
 for area in areas[:1]:
     area_rooms = []
-    for room in area:
+    for room in area[:1]:
         print(room)
         room_df = pd.read_csv(
             filepath_or_buffer=room,

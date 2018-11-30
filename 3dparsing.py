@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2 as cv
 import os
+from scipy.spatial import Voronoi, voronoi_plot_2d
 
 root = './s3dis'
 subfolders = lambda dir: next(os.walk(dir))[1]
@@ -16,7 +17,7 @@ area_1_dir = './area_1_pc'
 """if not os.path.isfile(area_1_dir):"""
 for area in areas[:1]:
     area_rooms = []
-    for room in area:
+    for room in area[:1]:
         print(room)
         room_df = pd.read_csv(
             filepath_or_buffer=room,
@@ -28,7 +29,14 @@ for area in areas[:1]:
     pcs.append(area_reconstruction)
 pc = pcs[0]
 
-PIXEL_SIZE = 1 / 39.37  # 1 inches
+PIXEL_SIZE = 0.5 / 39.37  # 1 inches
+THRESHOLD = 25
+
+def plt_grey(img):
+    plt.imshow(img, cmap="gray")
+
+def normalize_image(img):
+    return img * (255 / img.max())
 
 def make_image(pc, a1, a2):
     min_a1, max_a1 = min(pc[a1]), max(pc[a1])
@@ -38,10 +46,32 @@ def make_image(pc, a1, a2):
     plt.clf()
     plt.close()
     image = plot[0]
+    image = normalize_image(image)
+    #image = image.astype(np.float32)
     return image
 
 x_y_proj = make_image(pc, 'x', 'y')
-x_y_gradient = cv.Laplacian(x_y_proj, cv.CV_64F)
+#plt_grey(x_y_proj)
+x_y_proj = x_y_proj.astype(np.uint8)
+cv.threshold(x_y_proj, THRESHOLD, 255, 0, x_y_proj)
+kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
+#x_y = cv.morphologyEx(x_y_proj, cv.MORPH_OPEN, kernel)
+x_y = cv.dilate(x_y_proj, kernel, iterations=1)
+
+wall_points = np.squeeze(cv.findNonZero(x_y))
+vor = Voronoi(wall_points)
+
+
+plt_grey(x_y)
+x_y_gradient = cv.Laplacian(x_y_proj, cv.CV_32F)
+x_y_gradient = abs(x_y_gradient)
+#plt_grey(x_y_gradient)
+corners = cv.cornerHarris(x_y_gradient, 2, 3, 0.04)
+corners[corners < 0] = 0
+corners = normalize_image(corners)
+corners[corners > 0.001 * corners.max()] = 255
+corners[corners < 0] = 255
+plt_grey(corners)
 x_z_proj = make_image(pc, 'x', 'z')
 y_z_proj = make_image(pc, 'y', 'z')
 x = 2
