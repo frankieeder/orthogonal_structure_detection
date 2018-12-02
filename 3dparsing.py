@@ -65,12 +65,12 @@ def plot_cloud(pc):
         s=0.5
     )
 
-plot_cloud(pc.sample(frac=0.01))
+#plot_cloud(pc.sample(frac=0.01))
 
-x_y = make_image(pc, 'z', 'x')
+x_y = make_image(pc, 'x', 'y')
 #plt_grey(x_y_proj)
 x_y = x_y.astype(np.uint8)
-#cv.threshold(x_y, THRESHOLD, 255, 0, x_y)
+cv.threshold(x_y, THRESHOLD, 255, 0, x_y)
 kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
 #x_y = cv.dilate(x_y, kernel, iterations=1)
 #x_y = cv.morphologyEx(x_y, cv.MORPH_OPEN, kernel)
@@ -78,9 +78,9 @@ kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
 
 plt_grey(x_y)
 
-wall_points = np.squeeze(cv.findNonZero(x_y_proj))
-vor = Voronoi(wall_points)
-voronoi_plot_2d(vor)
+wall_points = np.squeeze(cv.findNonZero(x_y))
+#vor = Voronoi(wall_points)
+#voronoi_plot_2d(vor)
 
 plt_grey(x_y)
 x_y_gradient = cv.Laplacian(x_y_proj, cv.CV_32F)
