@@ -11,7 +11,7 @@ from mpl_toolkits.mplot3d import Axes3D
 root = './s3dis'
 subfolders = lambda dir: next(os.walk(dir))[1]
 areas = [root + '/' + a for a in subfolders(root)]
-area_rooms = [[a + '/' + r + '/' + r + ".txt" for r in subfolders(a)] for a in areas]
+#area_rooms = [[a + '/' + r + '/' + r + ".txt" for r in subfolders(a)] for a in areas]
 structure_pcs = []
 
 def pc_to_csv(file):
@@ -20,18 +20,34 @@ def pc_to_csv(file):
             sep=' ',
             names=['x', 'y', 'z', 'r', 'g', 'b'])
 
-pcs = []
+area_dfs = {}
+for area in areas[:1]:
+    room_dfs = {}
+    for room in subfolders(area):
+        print(room)
+        this_room_dir = area + '/' + room
+        room_full_df = pc_to_csv(this_room_dir + '/' + room + ".txt")
+        annotations_dir, subdirs, annotated_files = next(os.walk(this_room_dir + "/Annotations"))
+        annotations_files = [annotations_dir + "/" +  f for f in annotated_files]
+        room_structure_df = \
+            pd.concat(pc_to_csv(f) for f in annotations_files if "wall" in f or "ceiling" in f or "floor" in f)
+        room_dfs.update({room: (room_full_df, room_structure_df)})
+    area_dfs.update(room_dfs)
+
+x = 2
+
+main_pcs = []
 area_1_dir = './area_1_pc'
 """if not os.path.isfile(area_1_dir):"""
 for area in area_rooms[:1]:
     all_rooms = []
     structure_room = []
-    for room in area[:]:
+    for room in area[:1]:
         print(room)
         room_df = pc_to_csv(room)
         all_rooms.append(room_df)
     area_reconstruction = pd.concat(all_rooms)
-    pcs.append(area_reconstruction)
+    main_pcs.append(area_reconstruction)
 pc = pcs[0]
 
 PIXEL_SIZE = 0.5 / 39.37  # 1 inches
@@ -42,19 +58,6 @@ def plt_grey(img):
 
 def normalize_image(img):
     return img * (255 / img.max())
-
-def find_structures(pc):
-    def make_image(pc, a1, a2):
-        min_a1, max_a1 = min(pc[a1]), max(pc[a1])
-        min_a2, max_a2 = min(pc[a2]), max(pc[a2])
-        bins = [(max_a1 - min_a1) // PIXEL_SIZE, (max_a2 - min_a2) // PIXEL_SIZE]
-        plot = plt.hist2d(x=pc[a1], y=pc[a2], bins=bins)
-        plt.clf()
-        plt.close()
-        image = plot[0]
-        image = normalize_image(image)
-        #image = image.astype(np.float32)
-        return image, bins
 
 def rgb_to_hex(r, g, b):
     return list(zip(r.astype(int), g.astype(int), b.astype(int)))
@@ -69,7 +72,7 @@ def plot_cloud(pc):
         pc['z'],
         s=0.5
     )
-def find_perpendicular_structures(pc, a1, a2, structure_title):
+def find_perpendicular_structures(pc, a1, a2, structure_title, merge_type='left'):
     #plot_cloud(pc.sample(frac=0.01))
     start = time.time()
     min_a1, max_a1 = pc[a1].min(), pc[a1].max()
@@ -129,7 +132,7 @@ def find_perpendicular_structures(pc, a1, a2, structure_title):
 
     merged = pc.merge(
         right=wall_df,
-        how='left',
+        how=merge_type,
         on=[a1n, a2n],
         copy=False
     )
@@ -156,7 +159,7 @@ for area in areas[:1]:
         files.extend(dirpath + "/" + f for f in filenames)
     structure_pcs = [f for f in files if "wall" in f or "ceiling" in f or "floor" in f]
     area_structures.append(structure_pcs)
-structure_df = pd.concat(pc_to_csv(f) for f in structure_pcs)
+#structure_df = pd.concat(pc_to_csv(f) for f in structure_pcs)
 
 
 plt_grey(x_y)
