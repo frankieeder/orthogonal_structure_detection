@@ -126,9 +126,9 @@ def find_perpendicular_structures(pc, a1, a2, structure_title):
     print("Prep time: {0}".format(time.time() - start))
     start = time.time()
     x_y = pixelize_and_plot_pc(pc, a1, a2)
-    print("Image Creation: {0}".format(time.time() - start))
     plt.clf()
     plt.close()
+    print("Image Creation: {0}".format(time.time() - start))
     start = time.time()
     x_y = normalize_image(x_y)
     x_y = x_y.astype(np.uint8)
@@ -149,8 +149,8 @@ def find_perpendicular_structures(pc, a1, a2, structure_title):
     sorto.sort()
     sort_sample = sorto[::len(sorto)//NUM_SAMPLES]
     percentile = (np.argmax(np.gradient(sort_sample) >= SLOPE_THRESH)) / NUM_SAMPLES * 100
-    plt.plot(sorto)
-    plt.clf()
+    #plt.plot(sorto)
+    #plt.clf()
     thresh = np.percentile(sorto, percentile)
     cv.threshold(
         src=x_y,

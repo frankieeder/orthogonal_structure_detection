@@ -54,6 +54,20 @@ def warp_and_test_room(pc, a1, a2, actual_annotations, warp_params, structure_ti
         prediction_time = time.time() - start
         actual_vertical_surfaces = test_in(pc.annotation, actual_annotations)
         iou = IOU(actual_vertical_surfaces, pred_vertical_surfaces)
+
+        if False:  # Debugging methods
+            all = pixelize_and_plot_pc(pc, a1n, a2n)
+            plt.clf()
+            plt.close()
+
+            pred_wall = pixelize_and_plot_pc(pc[pc[structure_title]], a1n, a2n)
+            plt.clf()
+            plt.close()
+
+            actual_wall = pixelize_and_plot_pc(pc[actual_vertical_surfaces], a1n, a2n)
+            plt.clf()
+            plt.close()
+
         result = {
             'iou': iou,
             'prediction_time': prediction_time,
@@ -68,18 +82,7 @@ def warp_and_test_room(pc, a1, a2, actual_annotations, warp_params, structure_ti
     return results
 
 
-if False: # Debugging methods
-    all = pixelize_and_plot_pc(pc, a1n, a2n)
-    plt.clf()
-    plt.close()
 
-    pred_wall = pixelize_and_plot_pc(pc[pc[structure_title]], a1n, a2n)
-    plt.clf()
-    plt.close()
-
-    actual_wall = pixelize_and_plot_pc(pc[actual_vertical_surfaces], a1n, a2n)
-    plt.clf()
-    plt.close()
 
 
 
@@ -102,7 +105,7 @@ warp_params = [
 vertical_structure_annotations = ['wall', 'door', 'board', 'column', 'window']
 
 #Test individual rooms
-for i in range(1, 6):
+for i in range(6, 6):
     rooms = get_data(root, area_start=i, area_end=i+1)
     rooms = rooms[0]
     for room in rooms:
@@ -116,7 +119,7 @@ for i in range(1, 6):
             continue
 
 #Test whole areas
-for i in range(6):
+for i in range(4, 6):
     try:
         out_dir = "./Area_{0}_results.csv".format(i + 1)
         print("Making {0}".format(out_dir))
