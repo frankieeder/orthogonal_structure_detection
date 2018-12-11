@@ -188,8 +188,10 @@ def find_perpendicular_structures(pc, a1, a2, structure_title):
     print("Merge to original pc: {0}".format(time.time() - start))
     start = time.time()
     result = merged[structure_title].fillna(False)
-    merged = merged.drop([a1n, a2n, structure_title], axis=1)
-    pc = pc.drop([a1n, a2n], axis=1)
+    print("Results Casting: {0}".format(time.time() - start))
+    start = time.time()
+    #merged.drop([a1n, a2n, structure_title], axis=1, inplace=True)
+    #pc.drop([a1n, a2n], axis=1, inplace=True)
     print("Final pc cleanup: {0}".format(time.time() - start))
     return result, merged
 

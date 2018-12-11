@@ -105,8 +105,15 @@ warp_params = [
 vertical_structure_annotations = ['wall', 'door', 'board', 'column', 'window']
 
 #Test individual rooms
-for i in range(6, 6):
-    rooms = get_data(root, area_start=i, area_end=i+1)
+for i in range(0, 6):
+    rooms = get_data(
+        root,
+        room_start=0,
+        room_end=3,
+        room_step=1,
+        area_start=i,
+        area_end=i+1
+    )
     rooms = rooms[0]
     for room in rooms:
         try:
