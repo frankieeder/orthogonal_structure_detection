@@ -53,13 +53,21 @@ def twist_data(pc, a1, a2, r_perc, s):
 
 
 
-def get_data(root):
+def get_data(root,
+             area_start=0, area_end=None, area_step=1,
+             room_start=0, room_end=None, room_step=1):
     print("Loading Data...")
     area_dfs = []
-    for area in subfolders(root)[:1]:
+    areas = subfolders(root)
+    if area_end is None:
+        area_end = len(areas)
+    for area in areas[area_start:area_end:area_step]:
         print(area)
         room_dfs = []
-        for room in subfolders(root + '/' + area)[::3]:
+        rooms = subfolders(root + '/' + area)
+        if room_end is None:
+            room_end = len(rooms)
+        for room in rooms[room_start:room_end:room_step]:
             print(room)
             this_room_dir = root + "/" + area + '/' + room
             annotations_dir, subdirs, annotated_files = next(os.walk(this_room_dir + "/Annotations"))
@@ -73,12 +81,11 @@ def get_data(root):
             room_df['room'] = room
             room_dfs.append(room_df)
         print("Joining Area...")
-        area_df = pd.concat(room_dfs)
-        area_df['area'] = area
-        area_dfs.append(area_df)
-    pc = pd.concat(area_dfs)
+        for room_df in room_dfs:
+            room_df['area'] = area
+        area_dfs.append(room_dfs)
     print("Done getting data!")
-    return pc
+    return area_dfs
 
 def plt_grey(img):
     plt.imshow(img, cmap="gray")
@@ -109,7 +116,7 @@ def pixelizer_and_plotter(v1, v2):
     return img.T.copy()
 
 
-def find_perpendicular_structures(pc, a1, a2, structure_title, merge_type='left'):
+def find_perpendicular_structures(pc, a1, a2, structure_title):
     #plot_cloud(pc.sample(frac=0.01))
     start = time.time()
     a1n = a1 + '_pix'
@@ -141,7 +148,7 @@ def find_perpendicular_structures(pc, a1, a2, structure_title, merge_type='left'
     sorto = x_y.flatten()
     sorto.sort()
     sort_sample = sorto[::len(sorto)//NUM_SAMPLES]
-    percentile = (np.argmax(np.gradient(sort_sample) >= SLOPE_THRESH) + 1) / NUM_SAMPLES * 100
+    percentile = (np.argmax(np.gradient(sort_sample) >= SLOPE_THRESH)) / NUM_SAMPLES * 100
     plt.plot(sorto)
     plt.clf()
     thresh = np.percentile(sorto, percentile)
@@ -174,17 +181,17 @@ def find_perpendicular_structures(pc, a1, a2, structure_title, merge_type='left'
 
     merged = pc.merge(
         right=wall_df,
-        how=merge_type,
+        how='left',
         on=[a1n, a2n],
         copy=False
     )
     print("Merge to original pc: {0}".format(time.time() - start))
     start = time.time()
-    merged = merged.drop([a1n, a2n], axis=1)
+    result = merged[structure_title].fillna(False)
+    merged = merged.drop([a1n, a2n, structure_title], axis=1)
     pc = pc.drop([a1n, a2n], axis=1)
-    merged[structure_title] = merged[structure_title].fillna(False)
     print("Final pc cleanup: {0}".format(time.time() - start))
-    return merged
+    return result, merged
 
 def IOU(a, b):
     return sum(a & b) / sum(a | b)
@@ -198,85 +205,85 @@ def IOU(a, b):
 #actual_ceiling = pc.annotation.str.contains('ceiling')
 #actual_structure = actual_wall | actual_floor | actual_ceiling
 #pred_structure = pc['floor_x'] | pc['floor_y'] | pc['wall']
+if False:
+    LOAD_PICKLES = False
+    SAVE_PICKLES = False
 
-LOAD_PICKLES = False
-SAVE_PICKLES = False
+    TEST_NORMAL = False
+    TEST_TWISTED = True
 
-TEST_NORMAL = False
-TEST_TWISTED = True
+    if TEST_NORMAL:
+        NORMAL_PICKLE_DIR = "./data_normal.pickle"
+        if os.path.isfile(NORMAL_PICKLE_DIR) and LOAD_PICKLES:
+            pickle_in = open(NORMAL_PICKLE_DIR, "rb")
+            pc = pickle.load(pickle_in)
+        else:
+            pc = get_data(root)
+            if SAVE_PICKLES:
+                pickle_out = open(NORMAL_PICKLE_DIR, "wb")
+                pickle.dump(pc, pickle_out)
+                pickle_out.close()
 
-if TEST_NORMAL:
-    NORMAL_PICKLE_DIR = "./data_normal.pickle"
-    if os.path.isfile(NORMAL_PICKLE_DIR) and LOAD_PICKLES:
-        pickle_in = open(NORMAL_PICKLE_DIR, "rb")
-        pc = pickle.load(pickle_in)
-    else:
-        pc = get_data(root)
-        if SAVE_PICKLES:
-            pickle_out = open(NORMAL_PICKLE_DIR, "wb")
-            pickle.dump(pc, pickle_out)
-            pickle_out.close()
+        pc = find_perpendicular_structures(pc, 'x', 'y', 'vertical')
 
-    pc = find_perpendicular_structures(pc, 'x', 'y', 'vertical')
+        actual_vertical_surfaces = \
+            (pc.annotation == 'wall') | \
+            (pc.annotation == 'door') | \
+            (pc.annotation == 'board') | \
+            (pc.annotation == 'column') | \
+            (pc.annotation == 'window')
 
-    actual_vertical_surfaces = \
-        (pc.annotation == 'wall') | \
-        (pc.annotation == 'door') | \
-        (pc.annotation == 'board') | \
-        (pc.annotation == 'column') | \
-        (pc.annotation == 'window')
+        wall_IOU = IOU(actual_vertical_surfaces, pc['vertical'])
+        print(wall_IOU)
 
-    wall_IOU = IOU(actual_vertical_surfaces, pc['vertical'])
-    print(wall_IOU)
+        all = pixelize_and_plot_pc(pc, 'x', 'y')
+        plt.clf()
+        plt.close()
 
-    all = pixelize_and_plot_pc(pc, 'x', 'y')
-    plt.clf()
-    plt.close()
+        pred_wall = pixelize_and_plot_pc(pc[pc['vertical']], 'x', 'y')
+        plt.clf()
+        plt.close()
 
-    pred_wall = pixelize_and_plot_pc(pc[pc['vertical']], 'x', 'y')
-    plt.clf()
-    plt.close()
-
-    actual_wall = pixelize_and_plot_pc(pc[actual_vertical_surfaces], 'x', 'y')
-    plt.clf()
-    plt.close()
+        actual_wall = pixelize_and_plot_pc(pc[actual_vertical_surfaces], 'x', 'y')
+        plt.clf()
+        plt.close()
 
 
-if TEST_TWISTED:
-    TWISTED_PICKLE_DIR = "./data_twisted.pickle"
-    if os.path.isfile(TWISTED_PICKLE_DIR) and LOAD_PICKLES:
-        pickle_in = open(TWISTED_PICKLE_DIR, "rb")
-        pc = pickle.load(pickle_in)
-    else:
-        pc = get_data(root)
-        pc = twist_data(pc, 'x', 'y', 5, 3)
-        if SAVE_PICKLES:
-            pickle_out = open(TWISTED_PICKLE_DIR, "wb")
-            pickle.dump(pc, pickle_out)
-            pickle_out.close()
+    if TEST_TWISTED:
+        TWISTED_PICKLE_DIR = "./data_twisted.pickle"
+        if os.path.isfile(TWISTED_PICKLE_DIR) and LOAD_PICKLES:
+            pickle_in = open(TWISTED_PICKLE_DIR, "rb")
+            pc = pickle.load(pickle_in)
+        else:
+            pc = get_data(root)
+            pc = twist_data(pc, 'x', 'y', 5, 3)
+            if SAVE_PICKLES:
+                pickle_out = open(TWISTED_PICKLE_DIR, "wb")
+                pickle.dump(pc, pickle_out)
+                pickle_out.close()
 
-    pc = find_perpendicular_structures(pc, 'x_twist', 'y_twist', 'vertical')
+        pc = find_perpendicular_structures(pc, 'x_twist', 'y_twist', 'vertical')
 
-    actual_vertical_surfaces = \
-        (pc.annotation == 'wall') | \
-        (pc.annotation == 'door') | \
-        (pc.annotation == 'board') | \
-        (pc.annotation == 'column') | \
-        (pc.annotation == 'window')
+        actual_vertical_surfaces = \
+            (pc.annotation == 'wall') | \
+            (pc.annotation == 'door') | \
+            (pc.annotation == 'board') | \
+            (pc.annotation == 'column') | \
+            (pc.annotation == 'window')
 
-    wall_IOU = IOU(actual_vertical_surfaces, pc['vertical'])
-    print(wall_IOU)
+        wall_IOU = IOU(actual_vertical_surfaces, pc['vertical'])
+        print(wall_IOU)
 
-    all = pixelize_and_plot_pc(pc, 'x_twist', 'y_twist')
-    plt.clf()
-    plt.close()
+        all = pixelize_and_plot_pc(pc, 'x_twist', 'y_twist')
+        plt.clf()
+        plt.close()
 
-    pred_wall = pixelize_and_plot_pc(pc[pc['vertical']], 'x_twist', 'y_twist')
-    plt.clf()
-    plt.close()
+        pred_wall = pixelize_and_plot_pc(pc[pc['vertical']], 'x_twist', 'y_twist')
+        plt.clf()
+        plt.close()
 
-    actual_wall = pixelize_and_plot_pc(pc[actual_vertical_surfaces], 'x_twist', 'y_twist')
-    plt.clf()
-    plt.close()
+        actual_wall = pixelize_and_plot_pc(pc[actual_vertical_surfaces], 'x_twist', 'y_twist')
+        plt.clf()
+        plt.close()
 
 
