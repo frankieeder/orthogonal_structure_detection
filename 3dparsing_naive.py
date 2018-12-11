@@ -6,6 +6,7 @@ import os
 import time
 import re
 import re
+import pickle
 from scipy.spatial import Voronoi, voronoi_plot_2d
 from mpl_toolkits.mplot3d import Axes3D
 from skimage.transform import swirl
@@ -22,18 +23,32 @@ def pc_to_df(file):
             sep=' ',
             names=['x', 'y', 'z', 'r', 'g', 'b'])
 
-def twist_data(pc, a1, a2, r, s):
-    print("Twisting Data...")
-    a1_norm = pc[a1] - pc[a1].mean()
-    a2_norm = pc[a2] - pc[a2].mean()
+def twist_data(pc, a1, a2, r_perc, s):
+    print("Twisting Data:::")
+    print("Normalizing...")
+    a1_mean = pc[a1].mean()
+    a2_mean = pc[a2].mean()
+    a1_norm = pc[a1] - a1_mean
+    a2_norm = pc[a2] - a2_mean
+    r = r_perc * np.mean([a1_mean, a2_mean])
+    print("Radii...")
     p = np.power(np.power(a1_norm, 2) + np.power(a2_norm, 2), .5)
+    print("Thetas...")
     theta = np.arctan(a2_norm / a1_norm)
-    arctan_out_of_range = (np.sign(a1_norm)) == -1
-    theta[arctan_out_of_range] += np.pi
+    del a2_norm
+    print("Arctan adjustment...")
+    arctan_out_of_range = a1_norm < 0
+    del a1_norm
+    theta = theta + arctan_out_of_range * np.pi
+    del arctan_out_of_range
     r = np.log(2) * r / 5
+    print("Theta prime...")
     theta_prime = theta + s * np.exp(-1 * p / r)
+    del theta
+    print("Remap...")
     pc[a1 + "_twist"] = p * np.cos(theta_prime)
     pc[a2 + "_twist"] = p * np.sin(theta_prime)
+    print("Done twisting!")
     return pc
 
 
@@ -44,7 +59,7 @@ def get_data(root):
     for area in subfolders(root)[:1]:
         print(area)
         room_dfs = []
-        for room in subfolders(root + '/' + area)[:]:
+        for room in subfolders(root + '/' + area)[::3]:
             print(room)
             this_room_dir = root + "/" + area + '/' + room
             annotations_dir, subdirs, annotated_files = next(os.walk(this_room_dir + "/Annotations"))
@@ -170,14 +185,12 @@ def find_perpendicular_structures(pc, a1, a2, structure_title, merge_type='left'
     merged[structure_title] = merged[structure_title].fillna(False)
     print("Final pc cleanup: {0}".format(time.time() - start))
     return merged
-    #vor = Voronoi(wall_points)
-    #voronoi_plot_2d(vor)
 
 def IOU(a, b):
     return sum(a & b) / sum(a | b)
 
 
-pc = get_data(root)
+
 
 #pc = find_perpendicular_structures(pc, 'x', 'z', 'floor_x')
 #pc = find_perpendicular_structures(pc, 'y', 'z', 'floor_y')
@@ -186,33 +199,23 @@ pc = get_data(root)
 #actual_structure = actual_wall | actual_floor | actual_ceiling
 #pred_structure = pc['floor_x'] | pc['floor_y'] | pc['wall']
 
-if (False):
-    pc = twist_data(pc, 'x', 'y', 20, 2)
-    pc = find_perpendicular_structures(pc, 'x_twist', 'y_twist', 'vertical')
+LOAD_PICKLES = False
+SAVE_PICKLES = False
 
-    actual_vertical_surfaces = \
-        (pc.annotation == 'wall') | \
-        (pc.annotation == 'door') | \
-        (pc.annotation == 'board') | \
-        (pc.annotation == 'column') | \
-        (pc.annotation == 'window')
+TEST_NORMAL = False
+TEST_TWISTED = True
 
-    wall_IOU = IOU(actual_vertical_surfaces, pc['vertical'])
-    print(wall_IOU)
-
-    all = pixelize_and_plot_pc(pc, 'x_twist', 'y_twist')
-    plt.clf()
-    plt.close()
-
-    pred_wall = pixelize_and_plot_pc(pc[pc['vertical']], 'x_twist', 'y_twist')
-    plt.clf()
-    plt.close()
-
-    actual_wall = pixelize_and_plot_pc(pc[actual_vertical_surfaces], 'x_twist', 'y_twist')
-    plt.clf()
-    plt.close()
-
-if (True):
+if TEST_NORMAL:
+    NORMAL_PICKLE_DIR = "./data_normal.pickle"
+    if os.path.isfile(NORMAL_PICKLE_DIR) and LOAD_PICKLES:
+        pickle_in = open(NORMAL_PICKLE_DIR, "rb")
+        pc = pickle.load(pickle_in)
+    else:
+        pc = get_data(root)
+        if SAVE_PICKLES:
+            pickle_out = open(NORMAL_PICKLE_DIR, "wb")
+            pickle.dump(pc, pickle_out)
+            pickle_out.close()
 
     pc = find_perpendicular_structures(pc, 'x', 'y', 'vertical')
 
@@ -237,3 +240,43 @@ if (True):
     actual_wall = pixelize_and_plot_pc(pc[actual_vertical_surfaces], 'x', 'y')
     plt.clf()
     plt.close()
+
+
+if TEST_TWISTED:
+    TWISTED_PICKLE_DIR = "./data_twisted.pickle"
+    if os.path.isfile(TWISTED_PICKLE_DIR) and LOAD_PICKLES:
+        pickle_in = open(TWISTED_PICKLE_DIR, "rb")
+        pc = pickle.load(pickle_in)
+    else:
+        pc = get_data(root)
+        pc = twist_data(pc, 'x', 'y', 5, 3)
+        if SAVE_PICKLES:
+            pickle_out = open(TWISTED_PICKLE_DIR, "wb")
+            pickle.dump(pc, pickle_out)
+            pickle_out.close()
+
+    pc = find_perpendicular_structures(pc, 'x_twist', 'y_twist', 'vertical')
+
+    actual_vertical_surfaces = \
+        (pc.annotation == 'wall') | \
+        (pc.annotation == 'door') | \
+        (pc.annotation == 'board') | \
+        (pc.annotation == 'column') | \
+        (pc.annotation == 'window')
+
+    wall_IOU = IOU(actual_vertical_surfaces, pc['vertical'])
+    print(wall_IOU)
+
+    all = pixelize_and_plot_pc(pc, 'x_twist', 'y_twist')
+    plt.clf()
+    plt.close()
+
+    pred_wall = pixelize_and_plot_pc(pc[pc['vertical']], 'x_twist', 'y_twist')
+    plt.clf()
+    plt.close()
+
+    actual_wall = pixelize_and_plot_pc(pc[actual_vertical_surfaces], 'x_twist', 'y_twist')
+    plt.clf()
+    plt.close()
+
+
