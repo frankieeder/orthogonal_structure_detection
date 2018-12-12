@@ -50,7 +50,7 @@ def warp_and_test_room(pc, a1, a2, actual_annotations, warp_params, structure_ti
         a1n = a1 + "_twist"
         a2n = a2 + "_twist"
         start = time.time()
-        pred_vertical_surfaces, pc = find_perpendicular_structures(pc, a1n, a2n, structure_title)
+        pred_vertical_surfaces, pc = find_perpendicular_structures(pc, a1n, a2n)
         prediction_time = time.time() - start
         actual_vertical_surfaces = test_in(pc.annotation, actual_annotations)
         iou = IOU(actual_vertical_surfaces, pred_vertical_surfaces)
@@ -105,7 +105,7 @@ warp_params = [
 vertical_structure_annotations = ['wall', 'door', 'board', 'column', 'window']
 
 #Test individual rooms
-for i in range(0, 6):
+for i in range(6, 6):
     rooms = get_data(
         root,
         room_start=0,
@@ -116,28 +116,28 @@ for i in range(0, 6):
     )
     rooms = rooms[0]
     for room in rooms:
-        try:
-            out_dir = "./Area_{0}_Room_{1}_results.csv".format(i + 1, room['room'].min())
-            print("Making {0}".format(out_dir))
-            results = warp_and_test_room(room, 'x', 'y', vertical_structure_annotations, warp_params, 'vertical')
-            results.to_csv(out_dir)
-            print("\n\n")
-        except:
-            continue
-
-#Test whole areas
-for i in range(4, 6):
-    try:
-        out_dir = "./Area_{0}_results.csv".format(i + 1)
+        #try:
+        out_dir = "./Area_{0}_Room_{1}_results.csv".format(i + 1, room['room'].min())
         print("Making {0}".format(out_dir))
-        data = get_data(root, area_start=i, area_end=i+1)
-        data = data[0]
-        data = pd.concat(data)
-        results = warp_and_test_room(data, 'x', 'y', vertical_structure_annotations, warp_params, 'vertical')
+        results = warp_and_test_room(room, 'x', 'y', vertical_structure_annotations, warp_params, 'vertical')
         results.to_csv(out_dir)
         print("\n\n")
-    except:
-        continue
+        #except:
+            #continue
+
+#Test whole areas
+for i in range(0, 6):
+    #try:
+    out_dir = "./Area_{0}_results.csv".format(i + 1)
+    print("Making {0}".format(out_dir))
+    data = get_data(root, area_start=i, area_end=i+1)
+    data = data[0]
+    data = pd.concat(data)
+    results = warp_and_test_room(data, 'x', 'y', vertical_structure_annotations, warp_params, 'vertical')
+    results.to_csv(out_dir)
+    print("\n\n")
+    #except:
+        #continue
 
 
 

@@ -116,7 +116,7 @@ def pixelizer_and_plotter(v1, v2):
     return img.T.copy()
 
 
-def find_perpendicular_structures(pc, a1, a2, structure_title):
+def find_perpendicular_structures(pc, a1, a2):
     #plot_cloud(pc.sample(frac=0.01))
     start = time.time()
     a1n = a1 + '_pix'
@@ -125,27 +125,20 @@ def find_perpendicular_structures(pc, a1, a2, structure_title):
     pc[a2n] = (pc[a2] - pc[a2].min()) // PIXEL_SIZE
     print("Prep time: {0}".format(time.time() - start))
     start = time.time()
-    x_y = pixelize_and_plot_pc(pc, a1, a2)
+    img = pixelize_and_plot_pc(pc, a1, a2)
     plt.clf()
     plt.close()
     print("Image Creation: {0}".format(time.time() - start))
     start = time.time()
-    x_y = normalize_image(x_y)
-    x_y = x_y.astype(np.uint8)
+    img = normalize_image(img)
+    img = img.astype(np.uint8)
     #plt_grey(x_y)
     print("Image extraction and normalization: {0}".format(time.time() - start))
     start = time.time()
-    #image = image.astype(np.float32)
-
-    #x_y = make_image(pc, 'x', 'y')
-    #plt_grey(x_y_proj)
-
-    #blur = cv.GaussianBlur(x_y, (3, 3), 0)
-    #thresh, x_y_structs = cv.threshold(blur, 0, 255, cv.THRESH_BINARY)
     NUM_SAMPLES = 1000
     SLOPE_THRESH = 1
 
-    sorto = x_y.flatten()
+    sorto = img.flatten()
     sorto.sort()
     sort_sample = sorto[::len(sorto)//NUM_SAMPLES]
     percentile = (np.argmax(np.gradient(sort_sample) >= SLOPE_THRESH)) / NUM_SAMPLES * 100
@@ -153,29 +146,22 @@ def find_perpendicular_structures(pc, a1, a2, structure_title):
     #plt.clf()
     thresh = np.percentile(sorto, percentile)
     cv.threshold(
-        src=x_y,
-        dst=x_y,
+        src=img,
+        dst=img,
         thresh=thresh,
         maxval=255,
         type=cv.THRESH_BINARY
     )
     print("Thresholding: {0}".format(time.time() - start))
     start = time.time()
-    #kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
-    #x_y = cv.dilate(x_y, kernel, iterations=1)
-    #x_y = cv.morphologyEx(x_y, cv.MORPH_OPEN, kernel)
-
-
-    #plt_grey(x_y)
-
-    wall_points = np.squeeze(cv.findNonZero(x_y))
+    wall_points = np.squeeze(cv.findNonZero(img))
     print("Find structure points: {0}".format(time.time() - start))
     start = time.time()
     wall_df = pd.DataFrame(
         wall_points,
         columns=[a1n, a2n]
     )
-    wall_df[structure_title] = True
+    wall_df['orthog'] = True
     print("Form structure df: {0}".format(time.time() - start))
     start = time.time()
 
@@ -187,9 +173,10 @@ def find_perpendicular_structures(pc, a1, a2, structure_title):
     )
     print("Merge to original pc: {0}".format(time.time() - start))
     start = time.time()
-    result = merged[structure_title].fillna(False)
+    result = merged["orthog"].fillna(False)
     print("Results Casting: {0}".format(time.time() - start))
     start = time.time()
+    merged.drop(["orthog"], axis=1, inplace=True)
     #merged.drop([a1n, a2n, structure_title], axis=1, inplace=True)
     #pc.drop([a1n, a2n], axis=1, inplace=True)
     print("Final pc cleanup: {0}".format(time.time() - start))
