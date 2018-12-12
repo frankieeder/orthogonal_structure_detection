@@ -55,12 +55,13 @@ def warp_and_test_room(pc, a1, a2, actual_annotations, warp_params, structure_ti
         actual_vertical_surfaces = test_in(pc.annotation, actual_annotations)
         iou = IOU(actual_vertical_surfaces, pred_vertical_surfaces)
 
-        if False:  # Debugging methods
+        DEBUG = True
+        if DEBUG:  # Debugging methods
             all = pixelize_and_plot_pc(pc, a1n, a2n)
             plt.clf()
             plt.close()
 
-            pred_wall = pixelize_and_plot_pc(pc[pc[structure_title]], a1n, a2n)
+            pred_wall = pixelize_and_plot_pc(pc[pred_vertical_surfaces], a1n, a2n)
             plt.clf()
             plt.close()
 
@@ -108,9 +109,9 @@ vertical_structure_annotations = ['wall', 'door', 'board', 'column', 'window']
 for i in range(0, 6):
     rooms = get_data(
         root,
-        room_start=0,
-        room_end=3,
-        room_step=1,
+        #oom_start=0,
+        #room_end=3,
+        #room_step=1,
         area_start=i,
         area_end=i+1
     )
