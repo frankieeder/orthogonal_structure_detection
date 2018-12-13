@@ -15,7 +15,7 @@ root = './s3dis'
 subfolders = lambda dir: next(os.walk(dir))[1]
 structure_pcs = []
 
-PIXEL_SIZE = 0.5 / 39.37  # 1 inches
+PIXEL_SIZE = 0.5 / 39.37  # .5 inches
 
 def pc_to_df(file):
     return pd.read_csv(
@@ -24,6 +24,10 @@ def pc_to_df(file):
             names=['x', 'y', 'z', 'r', 'g', 'b'])
 
 def twist_data(pc, a1, a2, r_perc, s):
+    if s == 0:
+        pc[a1 + "_twist"] = pc[a1]
+        pc[a2 + "_twist"] = pc[a2]
+        return pc
     print("Twisting Data:::")
     print("Normalizing...")
     a1_mean = pc[a1].mean()
@@ -115,8 +119,72 @@ def pixelizer_and_plotter(v1, v2):
     img = plt.hist2d(x=v1, y=v2, bins=bins)[0]
     return img.T.copy()
 
-
 def find_perpendicular_structures(pc, a1, a2):
+    PAD_WIDTH = 10
+    def crop(img):
+        return img[PAD_WIDTH:-PAD_WIDTH, PAD_WIDTH:-PAD_WIDTH]
+    def pad(img):
+        return np.pad(img, PAD_WIDTH, mode='constant', constant_values=1)
+
+    pixel_size_local = PIXEL_SIZE
+    start = time.time()
+    a1n = a1 + '_pix'
+    a2n = a2 + '_pix'
+    pc[a1n] = ((pc[a1] - pc[a1].min()) // pixel_size_local).astype(int)
+    pc[a2n] = ((pc[a2] - pc[a2].min()) // pixel_size_local).astype(int)
+    v1 = pc[a1]
+    v2 = pc[a2]
+    bins = [int((v1.max() - v1.min()) // pixel_size_local), int((v2.max() - v2.min()) // pixel_size_local)]
+    hist, x_edges, y_edges = np.histogram2d(v1, v2, bins)
+
+    img = (hist == 0).astype(np.uint8)
+    img = pad(img)
+    hist = pad(hist)
+    kernel = np.ones((3,3), np.uint8)
+    img = cv.morphologyEx(img, cv.MORPH_OPEN, kernel)
+
+    dilated = cv.dilate(img, kernel, iterations=3)
+    img = dilated # - img # might help to speed up performance?
+
+    img = crop(img)
+    hist = crop(hist)
+    print("Prep time: {0}".format(time.time() - start))
+    start = time.time()
+    wall_points = np.squeeze(cv.findNonZero(img))
+    print("Find structure points: {0}".format(time.time() - start))
+    start = time.time()
+    wall_df = pd.DataFrame(
+        wall_points,
+        columns=[a1n, a2n]
+    )
+    wall_df['orthog'] = True
+    print("Form structure df: {0}".format(time.time() - start))
+    start = time.time()
+
+
+    
+    merged = pc.merge(
+        right=wall_df,
+        how='left',
+        on=[a1n, a2n],
+        copy=False
+    )
+    print("Merge to original pc: {0}".format(time.time() - start))
+    start = time.time()
+    result = merged["orthog"].fillna(False)
+    print("Results Casting: {0}".format(time.time() - start))
+    test_pixels = hist.copy()
+    test_pixels = np.maximum(test_pixels, img*test_pixels.max())
+    check_merge, _, _ = np.histogram2d(merged['x'][result], merged['y'][result], bins=bins)
+    plt.imshow(check_merge)
+    start = time.time()
+    merged.drop(["orthog"], axis=1, inplace=True)
+    # merged.drop([a1n, a2n, structure_title], axis=1, inplace=True)
+    # pc.drop([a1n, a2n], axis=1, inplace=True)
+    print("Final pc cleanup: {0}".format(time.time() - start))
+    return result, merged
+
+def find_perpendicular_structures_old(pc, a1, a2):
     #plot_cloud(pc.sample(frac=0.01))
     start = time.time()
     a1n = a1 + '_pix'

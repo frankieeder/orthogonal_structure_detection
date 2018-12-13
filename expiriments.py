@@ -109,9 +109,9 @@ vertical_structure_annotations = ['wall', 'door', 'board', 'column', 'window']
 for i in range(0, 6):
     rooms = get_data(
         root,
-        #oom_start=0,
-        #room_end=3,
-        #room_step=1,
+        room_start=0,
+        room_end=1,
+        room_step=1,
         area_start=i,
         area_end=i+1
     )
