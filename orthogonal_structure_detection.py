@@ -126,16 +126,17 @@ def find_perpendicular_structures(pc, a1, a2):
     def pad(img):
         return np.pad(img, PAD_WIDTH, mode='constant', constant_values=1)
 
-    pixel_size_local = PIXEL_SIZE
+    PIXEL_SIZE
     start = time.time()
     a1n = a1 + '_pix'
     a2n = a2 + '_pix'
-    pc[a1n] = ((pc[a1] - pc[a1].min()) // pixel_size_local).astype(int)
-    pc[a2n] = ((pc[a2] - pc[a2].min()) // pixel_size_local).astype(int)
-    v1 = pc[a1]
-    v2 = pc[a2]
-    bins = [int((v1.max() - v1.min()) // pixel_size_local), int((v2.max() - v2.min()) // pixel_size_local)]
+    pc[a1n] = ((pc[a1] - pc[a1].min()) // PIXEL_SIZE)
+    pc[a2n] = ((pc[a2] - pc[a2].min()) // PIXEL_SIZE)
+    v1 = pc[a1n]
+    v2 = pc[a2n]
+    bins = [int((pc[a1].max() - pc[a1].min()) // PIXEL_SIZE), int((pc[a2].max() - pc[a2].min()) // PIXEL_SIZE)]
     hist, x_edges, y_edges = np.histogram2d(v1, v2, bins)
+    hist = hist.T.copy()
 
     img = (hist == 0).astype(np.uint8)
     img = pad(img)
@@ -144,7 +145,7 @@ def find_perpendicular_structures(pc, a1, a2):
     img = cv.morphologyEx(img, cv.MORPH_OPEN, kernel)
 
     dilated = cv.dilate(img, kernel, iterations=3)
-    img = dilated # - img # might help to speed up performance?
+    img = dilated# - img # might help to speed up performance?
 
     img = crop(img)
     hist = crop(hist)
@@ -160,9 +161,6 @@ def find_perpendicular_structures(pc, a1, a2):
     wall_df['orthog'] = True
     print("Form structure df: {0}".format(time.time() - start))
     start = time.time()
-
-
-    
     merged = pc.merge(
         right=wall_df,
         how='left',
@@ -173,14 +171,14 @@ def find_perpendicular_structures(pc, a1, a2):
     start = time.time()
     result = merged["orthog"].fillna(False)
     print("Results Casting: {0}".format(time.time() - start))
-    test_pixels = hist.copy()
-    test_pixels = np.maximum(test_pixels, img*test_pixels.max())
-    check_merge, _, _ = np.histogram2d(merged['x'][result], merged['y'][result], bins=bins)
-    plt.imshow(check_merge)
+    if False: #Debugging stuff
+        test_pixels = hist.copy()
+        test_pixels = np.maximum(test_pixels, img*test_pixels.max())
+        plt.imshow(test_pixels)
+        check_merge, _, _ = np.histogram2d(merged[a1n][result], merged[a2n][result], bins=bins)
+        plt.imshow(check_merge)
     start = time.time()
     merged.drop(["orthog"], axis=1, inplace=True)
-    # merged.drop([a1n, a2n, structure_title], axis=1, inplace=True)
-    # pc.drop([a1n, a2n], axis=1, inplace=True)
     print("Final pc cleanup: {0}".format(time.time() - start))
     return result, merged
 

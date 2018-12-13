@@ -103,7 +103,9 @@ warp_params = [
 #save_warped_checkboxes(warp_params, 11, 11, 100)
 
 """Run tests on vertical structures"""
-vertical_structure_annotations = ['wall', 'door', 'board', 'column', 'window']
+vertical_structure_annotations = ['wall', 'board', 'column', 'window']
+#vertical_structure_annotations = ['wall', 'door', 'board', 'column', 'window']
+
 
 #Test individual rooms
 for i in range(0, 6):
