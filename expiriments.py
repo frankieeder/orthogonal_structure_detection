@@ -4,12 +4,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-def test_by_area():
-    return None
-
-def test_by_area():
-    return None
-
 def build_checkerboard(w, h):
     re = np.r_[w * [0, 1]]  # even-numbered rows
     ro = np.r_[w * [1, 0]]  # odd-numbered rows
@@ -90,7 +84,7 @@ def warp_and_test_room(pc, a1, a2, actual_annotations, warp_params, structure_ti
 
 """Helpful Variables"""
 warp_params = [
-    {'r_perc': 2, 's': 0},
+    #{'r_perc': 2, 's': 0},
     {'r_perc': 2, 's': 2},
     {'r_perc': 2, 's': 4},
     {'r_perc': 2, 's': 10},
@@ -108,12 +102,12 @@ vertical_structure_annotations = ['wall', 'board', 'column', 'window']
 
 
 #Test individual rooms
-for i in range(0, 6):
+for i in range(6, 6):
     rooms = get_data(
         root,
-        room_start=0,
-        room_end=1,
-        room_step=1,
+        #room_start=0,
+        #room_end=1,
+        #room_step=1,
         area_start=i,
         area_end=i+1
     )
@@ -129,7 +123,7 @@ for i in range(0, 6):
             continue
 
 #Test whole areas
-for i in range(0, 6):
+for i in range(4, 6):
     try:
         out_dir = "./Area_{0}_results.csv".format(i + 1)
         print("Making {0}".format(out_dir))

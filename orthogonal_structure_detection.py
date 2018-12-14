@@ -171,12 +171,12 @@ def find_perpendicular_structures(pc, a1, a2):
     start = time.time()
     result = merged["orthog"].fillna(False)
     print("Results Casting: {0}".format(time.time() - start))
-    if False: #Debugging stuff
-        test_pixels = hist.copy()
-        test_pixels = np.maximum(test_pixels, img*test_pixels.max())
-        plt.imshow(test_pixels)
-        check_merge, _, _ = np.histogram2d(merged[a1n][result], merged[a2n][result], bins=bins)
-        plt.imshow(check_merge)
+    #if False: #Debugging stuff
+    test_pixels = hist.copy()
+    test_pixels = np.maximum(test_pixels, img*test_pixels.max())
+    plt.imshow(test_pixels)
+    check_merge, _, _ = np.histogram2d(merged[a1n][result], merged[a2n][result], bins=bins)
+    plt.imshow(check_merge)
     start = time.time()
     merged.drop(["orthog"], axis=1, inplace=True)
     print("Final pc cleanup: {0}".format(time.time() - start))
