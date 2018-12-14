@@ -16,6 +16,7 @@ subfolders = lambda dir: next(os.walk(dir))[1]
 structure_pcs = []
 
 PIXEL_SIZE = 0.5 / 39.37  # .5 inches
+sigmoid = lambda x: 1 / (1 + np.exp(-x))
 
 def pc_to_df(file):
     return pd.read_csv(
@@ -34,7 +35,6 @@ def twist_data(pc, a1, a2, r_perc, s):
     a2_mean = pc[a2].mean()
     a1_norm = pc[a1] - a1_mean
     a2_norm = pc[a2] - a2_mean
-    r = r_perc * np.mean([a1_mean, a2_mean])
     print("Radii...")
     p = np.power(np.power(a1_norm, 2) + np.power(a2_norm, 2), .5)
     print("Thetas...")
@@ -45,9 +45,9 @@ def twist_data(pc, a1, a2, r_perc, s):
     del a1_norm
     theta = theta + arctan_out_of_range * np.pi
     del arctan_out_of_range
-    r = np.log(2) * r / 5
     print("Theta prime...")
-    theta_prime = theta + s * np.exp(-1 * p / r)
+    normalized_p = p / p.max() #Normalize radii to [0, 1]
+    theta_prime = theta + s * normalized_p
     del theta
     print("Remap...")
     pc[a1 + "_twist"] = p * np.cos(theta_prime)

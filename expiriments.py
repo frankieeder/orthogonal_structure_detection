@@ -84,7 +84,10 @@ def warp_and_test_room(pc, a1, a2, actual_annotations, warp_params, structure_ti
 
 """Helpful Variables"""
 warp_params = [
-    #{'r_perc': 2, 's': 0},
+    {'r_perc': 1, 's': 2*np.pi},
+    {'r_perc': 1, 's': 0},
+    {'r_perc': 1, 's': np.pi/4},
+    {'r_perc': 2, 's': 0},
     {'r_perc': 2, 's': 2},
     {'r_perc': 2, 's': 4},
     {'r_perc': 2, 's': 10},
@@ -105,9 +108,9 @@ vertical_structure_annotations = ['wall', 'board', 'column', 'window']
 for i in range(6, 6):
     rooms = get_data(
         root,
-        #room_start=0,
-        #room_end=1,
-        #room_step=1,
+        room_start=0,
+        room_end=1,
+        room_step=1,
         area_start=i,
         area_end=i+1
     )
@@ -123,11 +126,18 @@ for i in range(6, 6):
             continue
 
 #Test whole areas
-for i in range(4, 6):
+for i in range(0, 6):
     try:
         out_dir = "./Area_{0}_results.csv".format(i + 1)
         print("Making {0}".format(out_dir))
-        data = get_data(root, area_start=i, area_end=i+1)
+        data = get_data(
+            root,
+            #room_start=0,
+            #room_end=1,
+            room_step=6,
+            area_start=i,
+            area_end=i+1
+        )
         data = data[0]
         data = pd.concat(data)
         results = warp_and_test_room(data, 'x', 'y', vertical_structure_annotations, warp_params, 'vertical')
