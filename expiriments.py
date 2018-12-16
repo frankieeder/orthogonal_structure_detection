@@ -84,16 +84,16 @@ def warp_and_test_room(pc, a1, a2, actual_annotations, warp_params, structure_ti
 
 """Helpful Variables"""
 warp_params = [
-    {'r_perc': 1, 's': 2*np.pi},
     {'r_perc': 1, 's': 0},
     {'r_perc': 1, 's': np.pi/4},
-    {'r_perc': 2, 's': 0},
-    {'r_perc': 2, 's': 2},
-    {'r_perc': 2, 's': 4},
-    {'r_perc': 2, 's': 10},
-    {'r_perc': 5, 's': 10},
-    {'r_perc': 10, 's': 10},
-    {'r_perc': 20, 's': 10}
+    {'r_perc': 1, 's': 2 * np.pi},
+    #{'r_perc': 2, 's': 0},
+    #{'r_perc': 2, 's': 2},
+    #{'r_perc': 2, 's': 4},
+    #{'r_perc': 2, 's': 10},
+    #{'r_perc': 5, 's': 10},
+    #{'r_perc': 10, 's': 10},
+    #{'r_perc': 20, 's': 10}
 ]
 
 """Checkbox Warp Params"""
@@ -108,9 +108,9 @@ vertical_structure_annotations = ['wall', 'board', 'column', 'window']
 for i in range(6, 6):
     rooms = get_data(
         root,
-        room_start=0,
+        #room_start=0,
         room_end=1,
-        room_step=1,
+        #room_step=1,
         area_start=i,
         area_end=i+1
     )
@@ -134,7 +134,7 @@ for i in range(0, 6):
             root,
             #room_start=0,
             #room_end=1,
-            room_step=6,
+            #room_step=6,
             area_start=i,
             area_end=i+1
         )

@@ -125,8 +125,6 @@ def find_perpendicular_structures(pc, a1, a2):
         return img[PAD_WIDTH:-PAD_WIDTH, PAD_WIDTH:-PAD_WIDTH]
     def pad(img):
         return np.pad(img, PAD_WIDTH, mode='constant', constant_values=1)
-
-    PIXEL_SIZE
     start = time.time()
     a1n = a1 + '_pix'
     a2n = a2 + '_pix'
@@ -135,23 +133,45 @@ def find_perpendicular_structures(pc, a1, a2):
     v1 = pc[a1n]
     v2 = pc[a2n]
     bins = [int((pc[a1].max() - pc[a1].min()) // PIXEL_SIZE), int((pc[a2].max() - pc[a2].min()) // PIXEL_SIZE)]
+    print("Prep time: {0}".format(time.time() - start))
+    start = time.time()
     hist, x_edges, y_edges = np.histogram2d(v1, v2, bins)
     hist = hist.T.copy()
-
+    print("Histogram creation: {0}".format(time.time() - start))
+    start = time.time()
     img = (hist == 0).astype(np.uint8)
     img = pad(img)
     hist = pad(hist)
     kernel = np.ones((3,3), np.uint8)
-    img = cv.morphologyEx(img, cv.MORPH_OPEN, kernel)
+    opened = cv.morphologyEx(img, cv.MORPH_OPEN, kernel)
 
-    dilated = cv.dilate(img, kernel, iterations=3)
-    img = dilated# - img # might help to speed up performance?
+    dilated = cv.dilate(opened, kernel, iterations=3)
+    wall = dilated - opened# might help to speed up performance?
 
-    img = crop(img)
+
+    #hist = crop(hist)
+    print("Opening and Dilation: {0}".format(time.time() - start))
+    if False: #Save plot visuals for Figure 1
+        fig = plt.figure(frameon=False)
+        #fig.set_size_inches(w, h)
+        ax = plt.Axes(fig, [0., 0., 1., 1.])
+        ax.set_axis_off()
+        fig.add_axes(ax)
+        ax.imshow(hist)
+        fig.savefig('visuals_hist.png', dpi=300)
+        ax.imshow(img)
+        fig.savefig('visuals_void_space.png', dpi=300)
+        ax.imshow(opened)
+        fig.savefig('visuals_opened.png', dpi=300)
+        ax.imshow(dilated)
+        fig.savefig('visuals_dilated.png', dpi=300)
+        ax.imshow(wall)
+        fig.savefig('visuals_wall.png', dpi=300)
+        fig.clf()
+    wall = crop(wall)
     hist = crop(hist)
-    print("Prep time: {0}".format(time.time() - start))
     start = time.time()
-    wall_points = np.squeeze(cv.findNonZero(img))
+    wall_points = np.squeeze(cv.findNonZero(wall))
     print("Find structure points: {0}".format(time.time() - start))
     start = time.time()
     wall_df = pd.DataFrame(
@@ -171,12 +191,19 @@ def find_perpendicular_structures(pc, a1, a2):
     start = time.time()
     result = merged["orthog"].fillna(False)
     print("Results Casting: {0}".format(time.time() - start))
-    #if False: #Debugging stuff
-    test_pixels = hist.copy()
-    test_pixels = np.maximum(test_pixels, img*test_pixels.max())
-    plt.imshow(test_pixels)
-    check_merge, _, _ = np.histogram2d(merged[a1n][result], merged[a2n][result], bins=bins)
-    plt.imshow(check_merge)
+    if True: #Save plot visuals for figure 2
+        fig = plt.figure(frameon=False)
+        # fig.set_size_inches(w, h)
+        ax = plt.Axes(fig, [0., 0., 1., 1.])
+        ax.set_axis_off()
+        fig.add_axes(ax)
+
+        test_pixels = hist.copy()
+        test_pixels = np.maximum(test_pixels, wall*test_pixels.max())
+        test_pixels = pad(test_pixels)
+
+        ax.imshow(test_pixels)
+        fig.savefig('visuals_wall_and_hist.png', dpi=300)
     start = time.time()
     merged.drop(["orthog"], axis=1, inplace=True)
     print("Final pc cleanup: {0}".format(time.time() - start))
