@@ -5,26 +5,33 @@ import cv2 as cv
 import os
 import time
 import re
-import re
-import pickle
-from scipy.spatial import Voronoi, voronoi_plot_2d
-from mpl_toolkits.mplot3d import Axes3D
-from skimage.transform import swirl
 
 root = './s3dis'
 subfolders = lambda dir: next(os.walk(dir))[1]
-structure_pcs = []
 
 PIXEL_SIZE = 0.5 / 39.37  # .5 inches
-sigmoid = lambda x: 1 / (1 + np.exp(-x))
 
 def pc_to_df(file):
+    """
+    Simple helper function to help read S3DIS dataset.
+    :param file:
+    :return:
+    """
     return pd.read_csv(
             filepath_or_buffer=file,
             sep=' ',
             names=['x', 'y', 'z', 'r', 'g', 'b'])
 
-def twist_data(pc, a1, a2, r_perc, s):
+def twist_data(pc, a1, a2, s):
+    """
+    Note: a1 and a2 denote the plane along which to twist, orthogonal to the axis about which we are twisting.
+    :param pc: input point cloud, as pandas dataframe.
+    :param a1: first axis along which to twist, as string denoting column name.
+    :param a2: second axis along which to twist, as string denoting column name.
+    :param s: the strength of the twist.
+    :return: twisted point cloud, as pandas dataframe.
+
+    """
     if s == 0:
         pc[a1 + "_twist"] = pc[a1]
         pc[a2 + "_twist"] = pc[a2]
@@ -60,6 +67,17 @@ def twist_data(pc, a1, a2, r_perc, s):
 def get_data(root,
              area_start=0, area_end=None, area_step=1,
              room_start=0, room_end=None, room_step=1):
+    """
+    Helper function to help load point cloud data from the S3DIS dataset.
+    :param root: The location of the s3dis dataset.
+    :param area_start: The first room to collect.
+    :param area_end: The last room to collect.
+    :param area_step: The step size for our iteration between area_start and area_end
+    :param room_start: The first room in each area that we want to collect.
+    :param room_end: The last room in each area that we want to collect.
+    :param room_step: Similar to area_step, the step size for our room collection iteration.
+    :return: A list of lists of dataframes that correspond to the queried data.
+    """
     print("Loading Data...")
     area_dfs = []
     areas = subfolders(root)
@@ -91,40 +109,35 @@ def get_data(root,
     print("Done getting data!")
     return area_dfs
 
-def plt_grey(img):
-    plt.imshow(img, cmap="gray")
-
-def normalize_image(img):
-    return img * (255 / img.max())
-
-def rgb_to_hex(r, g, b):
-    return list(zip(r.astype(int), g.astype(int), b.astype(int)))
-
-def plot_cloud(pc):
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    colors = rgb_to_hex(pc['r'], pc['g'], pc['b'])
-    ax.scatter(
-        pc['x'],
-        pc['y'],
-        pc['z'],
-        s=0.5
-    )
-
 def pixelize_and_plot_pc(pc, a1, a2):
+    """Helper function to plot histogram density map for debugging."""
     return pixelizer_and_plotter(pc[a1], pc[a2])
 
 def pixelizer_and_plotter(v1, v2):
+    """Plots histogram density map for debugging."""
     bins = [(v1.max() - v1.min()) // PIXEL_SIZE, (v2.max() - v2.min()) // PIXEL_SIZE]
     img = plt.hist2d(x=v1, y=v2, bins=bins)[0]
     return img.T.copy()
 
 def find_perpendicular_structures(pc, a1, a2):
+    """Our main algorithm. Note that we add inputs a1 and a2 to generalize to projections in the xz and yz planes,
+    but for the purposes of the current paper we always project to the xy-plane to detect walls.
+    :param pc: input point cloud in which to detect structures
+    :param a1: first axis denoting plane to project to, as string.
+    :param a2: second axis denoting plane to project to, as string.
+    :return: A reordered version of the input point cloud, along with a vector of indices that denote points
+        detected as structures.
+    """
+    # Define helpful constants
     PAD_WIDTH = 10
+
     def crop(img):
         return img[PAD_WIDTH:-PAD_WIDTH, PAD_WIDTH:-PAD_WIDTH]
+
     def pad(img):
         return np.pad(img, PAD_WIDTH, mode='constant', constant_values=1)
+
+    # Define helpful variables.
     start = time.time()
     a1n = a1 + '_pix'
     a2n = a2 + '_pix'
@@ -134,24 +147,26 @@ def find_perpendicular_structures(pc, a1, a2):
     v2 = pc[a2n]
     bins = [int((pc[a1].max() - pc[a1].min()) // PIXEL_SIZE), int((pc[a2].max() - pc[a2].min()) // PIXEL_SIZE)]
     print("Prep time: {0}".format(time.time() - start))
+
+    #Create density map.
     start = time.time()
     hist, x_edges, y_edges = np.histogram2d(v1, v2, bins)
     hist = hist.T.copy()
     print("Histogram creation: {0}".format(time.time() - start))
+
+    # Find void space, open, dilate, and isolate.
     start = time.time()
-    img = (hist == 0).astype(np.uint8)
-    img = pad(img)
+    void = (hist == 0).astype(np.uint8)
+    void = pad(void)
     hist = pad(hist)
     kernel = np.ones((3,3), np.uint8)
-    opened = cv.morphologyEx(img, cv.MORPH_OPEN, kernel)
-
+    opened = cv.morphologyEx(void, cv.MORPH_OPEN, kernel)
     dilated = cv.dilate(opened, kernel, iterations=3)
-    wall = dilated - opened# might help to speed up performance?
-
-
-    #hist = crop(hist)
+    wall = dilated - opened
     print("Opening and Dilation: {0}".format(time.time() - start))
-    if False: #Save plot visuals for Figure 1
+
+    # Save plot visuals for Figure 1
+    if False:
         fig = plt.figure(frameon=False)
         #fig.set_size_inches(w, h)
         ax = plt.Axes(fig, [0., 0., 1., 1.])
@@ -168,8 +183,11 @@ def find_perpendicular_structures(pc, a1, a2):
         ax.imshow(wall)
         fig.savefig('visuals_wall.png', dpi=300)
         fig.clf()
+    # Make sure to crop walls back for remapping step!
     wall = crop(wall)
     hist = crop(hist)
+
+    # Structure our known wall points
     start = time.time()
     wall_points = np.squeeze(cv.findNonZero(wall))
     print("Find structure points: {0}".format(time.time() - start))
@@ -180,6 +198,8 @@ def find_perpendicular_structures(pc, a1, a2):
     )
     wall_df['orthog'] = True
     print("Form structure df: {0}".format(time.time() - start))
+
+    # Remap our known wall points to our original point cloud
     start = time.time()
     merged = pc.merge(
         right=wall_df,
@@ -188,10 +208,14 @@ def find_perpendicular_structures(pc, a1, a2):
         copy=False
     )
     print("Merge to original pc: {0}".format(time.time() - start))
+
+    #Create our desired output as a vector of indices of the merged dataframe that are wall points
     start = time.time()
     result = merged["orthog"].fillna(False)
     print("Results Casting: {0}".format(time.time() - start))
-    if True: #Save plot visuals for figure 2
+
+    # Save plot visuals for Figure 2
+    if False:
         fig = plt.figure(frameon=False)
         # fig.set_size_inches(w, h)
         ax = plt.Axes(fig, [0., 0., 1., 1.])
@@ -204,168 +228,13 @@ def find_perpendicular_structures(pc, a1, a2):
 
         ax.imshow(test_pixels)
         fig.savefig('visuals_wall_and_hist.png', dpi=300)
+
+    #Drop redundant data from original point cloud to leave it unmodified.
     start = time.time()
     merged.drop(["orthog"], axis=1, inplace=True)
     print("Final pc cleanup: {0}".format(time.time() - start))
-    return result, merged
 
-def find_perpendicular_structures_old(pc, a1, a2):
-    #plot_cloud(pc.sample(frac=0.01))
-    start = time.time()
-    a1n = a1 + '_pix'
-    a2n = a2 + '_pix'
-    pc[a1n] = (pc[a1] - pc[a1].min()) // PIXEL_SIZE
-    pc[a2n] = (pc[a2] - pc[a2].min()) // PIXEL_SIZE
-    print("Prep time: {0}".format(time.time() - start))
-    start = time.time()
-    img = pixelize_and_plot_pc(pc, a1, a2)
-    plt.clf()
-    plt.close()
-    print("Image Creation: {0}".format(time.time() - start))
-    start = time.time()
-    img = normalize_image(img)
-    img = img.astype(np.uint8)
-    #plt_grey(x_y)
-    print("Image extraction and normalization: {0}".format(time.time() - start))
-    start = time.time()
-    NUM_SAMPLES = 1000
-    SLOPE_THRESH = 1
-
-    sorto = img.flatten()
-    sorto.sort()
-    sort_sample = sorto[::len(sorto)//NUM_SAMPLES]
-    percentile = (np.argmax(np.gradient(sort_sample) >= SLOPE_THRESH)) / NUM_SAMPLES * 100
-    #plt.plot(sorto)
-    #plt.clf()
-    thresh = np.percentile(sorto, percentile)
-    cv.threshold(
-        src=img,
-        dst=img,
-        thresh=thresh,
-        maxval=255,
-        type=cv.THRESH_BINARY
-    )
-    print("Thresholding: {0}".format(time.time() - start))
-    start = time.time()
-    wall_points = np.squeeze(cv.findNonZero(img))
-    print("Find structure points: {0}".format(time.time() - start))
-    start = time.time()
-    wall_df = pd.DataFrame(
-        wall_points,
-        columns=[a1n, a2n]
-    )
-    wall_df['orthog'] = True
-    print("Form structure df: {0}".format(time.time() - start))
-    start = time.time()
-
-    merged = pc.merge(
-        right=wall_df,
-        how='left',
-        on=[a1n, a2n],
-        copy=False
-    )
-    print("Merge to original pc: {0}".format(time.time() - start))
-    start = time.time()
-    result = merged["orthog"].fillna(False)
-    print("Results Casting: {0}".format(time.time() - start))
-    start = time.time()
-    merged.drop(["orthog"], axis=1, inplace=True)
-    #merged.drop([a1n, a2n, structure_title], axis=1, inplace=True)
-    #pc.drop([a1n, a2n], axis=1, inplace=True)
-    print("Final pc cleanup: {0}".format(time.time() - start))
     return result, merged
 
 def IOU(a, b):
     return sum(a & b) / sum(a | b)
-
-
-
-
-#pc = find_perpendicular_structures(pc, 'x', 'z', 'floor_x')
-#pc = find_perpendicular_structures(pc, 'y', 'z', 'floor_y')
-#actual_floor = pc.annotation.str.contains('floor')
-#actual_ceiling = pc.annotation.str.contains('ceiling')
-#actual_structure = actual_wall | actual_floor | actual_ceiling
-#pred_structure = pc['floor_x'] | pc['floor_y'] | pc['wall']
-if False:
-    LOAD_PICKLES = False
-    SAVE_PICKLES = False
-
-    TEST_NORMAL = False
-    TEST_TWISTED = True
-
-    if TEST_NORMAL:
-        NORMAL_PICKLE_DIR = "./data_normal.pickle"
-        if os.path.isfile(NORMAL_PICKLE_DIR) and LOAD_PICKLES:
-            pickle_in = open(NORMAL_PICKLE_DIR, "rb")
-            pc = pickle.load(pickle_in)
-        else:
-            pc = get_data(root)
-            if SAVE_PICKLES:
-                pickle_out = open(NORMAL_PICKLE_DIR, "wb")
-                pickle.dump(pc, pickle_out)
-                pickle_out.close()
-
-        pc = find_perpendicular_structures(pc, 'x', 'y', 'vertical')
-
-        actual_vertical_surfaces = \
-            (pc.annotation == 'wall') | \
-            (pc.annotation == 'door') | \
-            (pc.annotation == 'board') | \
-            (pc.annotation == 'column') | \
-            (pc.annotation == 'window')
-
-        wall_IOU = IOU(actual_vertical_surfaces, pc['vertical'])
-        print(wall_IOU)
-
-        all = pixelize_and_plot_pc(pc, 'x', 'y')
-        plt.clf()
-        plt.close()
-
-        pred_wall = pixelize_and_plot_pc(pc[pc['vertical']], 'x', 'y')
-        plt.clf()
-        plt.close()
-
-        actual_wall = pixelize_and_plot_pc(pc[actual_vertical_surfaces], 'x', 'y')
-        plt.clf()
-        plt.close()
-
-
-    if TEST_TWISTED:
-        TWISTED_PICKLE_DIR = "./data_twisted.pickle"
-        if os.path.isfile(TWISTED_PICKLE_DIR) and LOAD_PICKLES:
-            pickle_in = open(TWISTED_PICKLE_DIR, "rb")
-            pc = pickle.load(pickle_in)
-        else:
-            pc = get_data(root)
-            pc = twist_data(pc, 'x', 'y', 5, 3)
-            if SAVE_PICKLES:
-                pickle_out = open(TWISTED_PICKLE_DIR, "wb")
-                pickle.dump(pc, pickle_out)
-                pickle_out.close()
-
-        pc = find_perpendicular_structures(pc, 'x_twist', 'y_twist', 'vertical')
-
-        actual_vertical_surfaces = \
-            (pc.annotation == 'wall') | \
-            (pc.annotation == 'door') | \
-            (pc.annotation == 'board') | \
-            (pc.annotation == 'column') | \
-            (pc.annotation == 'window')
-
-        wall_IOU = IOU(actual_vertical_surfaces, pc['vertical'])
-        print(wall_IOU)
-
-        all = pixelize_and_plot_pc(pc, 'x_twist', 'y_twist')
-        plt.clf()
-        plt.close()
-
-        pred_wall = pixelize_and_plot_pc(pc[pc['vertical']], 'x_twist', 'y_twist')
-        plt.clf()
-        plt.close()
-
-        actual_wall = pixelize_and_plot_pc(pc[actual_vertical_surfaces], 'x_twist', 'y_twist')
-        plt.clf()
-        plt.close()
-
-
